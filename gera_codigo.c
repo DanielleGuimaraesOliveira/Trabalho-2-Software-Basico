@@ -14,9 +14,10 @@
  *     - zret a b (retorno condicional)
  *
  * Coloque aqui os nomes dos integrantes (substitua os placeholders):
- * /* Nome_do_Aluno1 Matrícula Turma */
-  /* Nome_do_Aluno2 Matrícula Turma */
- 
+ * Nome_do_Aluno1 Matrícula Turma
+ * Nome_do_Aluno2 Matrícula Turma
+ */
+
 
 #include <stdio.h>
 #include <string.h>
@@ -323,7 +324,7 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
             int jne_pos = emit_jne_rel32_placeholder(code, &idx);
             /* se não é zero, continue execução (fall-through) */
             /* agora geramos o bloco de retorno (o destino do je) imediatamente */
-            int ret_block_pos = idx;
+            // int ret_block_pos = idx;
             /* colocar valor t2 em eax */
             emit_load_varpc_to_eax(code, &idx, t2);
             emit_epilogue(code, &idx);
