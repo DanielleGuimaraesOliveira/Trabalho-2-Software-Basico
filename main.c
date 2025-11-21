@@ -32,7 +32,7 @@ int main() {
         return 1;
     }
 
-    res = func(10);
+    res = func(5);
     printf("Resultado: %d\n", res);
     /* liberar a memória executável */
     munmap(code, CODESZ);

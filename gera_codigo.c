@@ -18,15 +18,12 @@
  * Nome_do_Aluno2 Matrícula Turma
  */
 
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include "gera_codigo.h"
 
-/* máx de funções esperadas no arquivo (segundo enunciado)
-   (50 linhas no arquivo, então 50 funções é suficiente) */
 #define MAX_FUNCS 64
 #define MAX_LINE 200
 
@@ -336,6 +333,14 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
             char *arg = strtok(NULL, " \t");
             if (!nstr || !arg) continue;
             int num = atoi(nstr);
+            /* salvar edi (p0) em slot temporário [rbp-24] para preservar across call */
+            {
+                unsigned char s[3];
+                s[0] = 0x89; /* mov [rbp-disp], edi -> opcode 89 /r */
+                s[1] = 0x7D; /* modrm: mod=01 reg=111(edi) rm=101 ([rbp - disp8]) */
+                s[2] = ((-24) & 0xFF);
+                emit_bytes(code, &idx, s, 3);
+            }
             /* preparar argumento: carregar varpc em edi (p0 -> edi já; para vN/$const -> mov edi, imm / mov edi, [rbp-disp]) */
             if (arg[0] == '$') {
                 int imm = parse_snum(arg + 1);
@@ -362,6 +367,14 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
                 target = 0;
             }
             emit_call_rel32(code, &idx, target);
+            /* restaurar edi original a partir de [rbp-24] */
+            {
+                unsigned char r[3];
+                r[0] = 0x8B; /* mov edi, [rbp-disp] */
+                r[1] = 0x7D;
+                r[2] = ((-24) & 0xFF);
+                emit_bytes(code, &idx, r, 3);
+            }
             continue;
         }
 
@@ -385,6 +398,14 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
                 char *arg = strtok(NULL, " \t");
                 if (!nstr || !arg) continue;
                 int num = atoi(nstr);
+                /* salvar edi (p0) em slot temporário [rbp-24] para preservar across call */
+                {
+                    unsigned char s[3];
+                    s[0] = 0x89; /* mov [rbp-disp], edi -> opcode 89 /r */
+                    s[1] = 0x7D; /* modrm: mod=01 reg=111(edi) rm=101 ([rbp - disp8]) */
+                    s[2] = ((-24) & 0xFF);
+                    emit_bytes(code, &idx, s, 3);
+                }
                 /* preparar argumento em edi */
                 if (arg[0] == '$') {
                     int imm = parse_snum(arg + 1);
@@ -409,6 +430,14 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
                     target = 0;
                 }
                 emit_call_rel32(code, &idx, target);
+                /* restaurar edi original a partir de [rbp-24] */
+                {
+                    unsigned char r[3];
+                    r[0] = 0x8B; /* mov edi, [rbp-disp] */
+                    r[1] = 0x7D;
+                    r[2] = ((-24) & 0xFF);
+                    emit_bytes(code, &idx, r, 3);
+                }
                 /* after call, return value in eax; store to left var */
                 if (left[0] == 'v') {
                     int vl = atoi(left + 1);
