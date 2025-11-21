@@ -1,0 +1,118 @@
+Relatório do Trabalho 2 - INF1018 (2025.2)
+Gerador de Código LBS
+
+Integrantes:
+- Danielle Guimarães Cruz de Oliveira Matrícula Turma
+- Nome_do_Aluno2 Matrícula Turma
+
+Resumo do que foi implementado
+- A função `gera_codigo(FILE *f, unsigned char code[], funcp *entry)` lê um arquivo LBS e escreve sequências de bytes x86-64 em `code[]`.
+- Suporta prólogo/epílogo (push rbp; mov rbp,rsp; sub rsp, imm8 ; leave; ret).
+- Suporta instruções de retorno: `ret $const`, `ret p0`, `ret vN`.
+- Suporta atribuições com operandos `vN`, `p0`, `$const`.
+- Suporta operações aritméticas `+`, `-`, `*` entre `varpc`.
+- Suporta `call num varpc` (emite `call rel32` calculando rel32 pelo offset da função alvo no buffer).
+- Suporta `zret a b` (retorno condicional com `test eax,eax` + `jne` placeholder e patch).
+
+Comportamento e limitações
+- O gerador assume entradas LBS corretas (não faz validação extensa de sintaxe).
+- As variáveis locais `v0..v4` são mapeadas para `[rbp - 4], [rbp - 8], ...` e o espaço de quadro reservado é fixo (`LOCAL_BYTES = 32`) para alinhamento.
+- O gerador usa instruções de deslocamento com disp8 (offsets de 1 byte) para acesso a `[rbp-disp]` — projetado para os pequenos offsets das variáveis locais.
+- Chamadas a funções cujo índice não foi definido (offset desconhecido) são direcionadas para offset 0 (comportamento indefinido) — evite chamar funções inexistentes.
+- Não há tratamento de erros para overflow aritmético, divisão ou instruções não suportadas.
+
+Correções e observações de implementação
+- Foi necessário preservar o registrador `edi` (onde chega `p0`) nas chamadas: originalmente uma chamada podia sobrescrever `edi` e corromper o parâmetro em chamadas subsequentes/recursivas. O gerador agora salva `edi` em um slot temporário dentro do frame (`[rbp-24]`) antes de preparar o argumento de um `call`, e restaura `edi` depois do `call`.
+
+Exemplos LBS testados (código e resultado esperado / observado)
+
+1) Retornar constante
+---------------------
+Código LBS:
+function
+ret $100
+end
+
+Resultado esperado: 100 (para qualquer `p0`)
+Observado: 100 (ok)
+
+2) Identidade / adicionar 1
+---------------------------
+Código LBS:
+function
+v0 = p0 + $1
+ret v0
+end
+
+Teste: `p0 = 5` -> esperado 6. Observado: 6 (ok).
+
+3) Quadrado (função auxiliar) e Soma dos quadrados (entry)
+-------------------------------------------------------
+Arquivo `teste.lbs` usado para testes finais:
+function
+v0 = p0 * p0
+ret v0
+end
+
+function
+zret p0 $0
+v0 = p0 - $1
+v1 = call 1 v0
+v2 = call 0 p0
+v0 = v1 + v2
+ret v0
+end
+
+Interpretação: função 0 calcula n^2; função 1 calcula recursivamente sum_{k=1..n} k^2 (F(0)=0).
+Testes:
+- `p0 = 5` -> esperado 55. Observado: 55 (ok).
+- `p0 = 10` -> esperado 385 (teste feito anteriormente em outra variação, ok).
+
+4) Fatorial (exemplo testado durante desenvolvimento)
+----------------------------------------------------
+Código LBS (exemplo):
+function
+zret p0 $1
+v0 = p0 - $1
+v1 = call 0 v0
+v0 = p0 * v1
+ret v0
+end
+
+Teste: `p0 = 5` -> esperado 120. Observado: 120 (ok). Nota: inicialmente um bug fazia `edi` ser perdido pela chamada, resultando em retorno incorreto (0); após preservar `edi` o resultado passou a ser correto.
+
+5) Exemplo que causou segfault (uso incorreto/recursão infinita) — teste que mostrou problema lógico do LBS, não do gerador
+--------------------------------------------------------------------------
+Código LBS (problemático):
+function
+ret $42
+end
+
+function
+v0 = p0 + $2
+ret v0
+end
+
+function
+zret p0 $0
+v0 = p0 - $1
+v1 = call 1 v0
+v0 = call 2 v1
+ret v0
+end
+
+Explicação: a terceira função chama `call 1 v0` (gera p0+1) e então `call 2` com esse valor, fazendo o parâmetro aumentar a cada chamada — a recursão não converge para o caso base e causa estouro de pilha (stack overflow / segfault). Esse comportamento é do programa LBS (lógica), não do gerador. Valgrind confirmou "Stack overflow" no teste.
+
+Como compilar e executar (ambiente de desenvolvimento)
+- Compilar:
+ gcc -Wall -Wextra -std=c11 main.c gera_codigo.c -o teste && ./teste
+- Executar (main chama a última função do arquivo LBS com p0 fixo):
+  ./runme
+
+Observações finais
+- O gerador atende aos requisitos principais do enunciado (tradução para x86-64 das construções LBS solicitadas). Ainda há espaço para melhorias: melhor verificação de erros, suporte a mais instruções, e/ou organização dos slots temporários (hoje usamos `rbp-24` como slot temporário para preservar `edi`).
+- Substitua os nomes dos integrandes no início do relatório pelos nomes reais do grupo.
+
+Arquivo gerado neste repositório: `relatorio.txt`
+
+--- Fim do relatório ---
