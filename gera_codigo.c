@@ -131,14 +131,7 @@ static void emit_mov_mem_rbp_disp_eax(unsigned char code[], int *idx, int disp) 
     emit_bytes(code, idx, b, 3);
 }
 
-/* Mov [rbp - disp], ecx : 89 4D disp8 */
-static void emit_mov_mem_rbp_disp_ecx(unsigned char code[], int *idx, int disp) {
-    unsigned char b[3];
-    b[0] = 0x89;
-    b[1] = 0x4D;
-    b[2] = ((-disp) & 0xFF);
-    emit_bytes(code, idx, b, 3);
-}
+/* (emit_mov_mem_rbp_disp_ecx removed as it was unused) */
 
 /* add eax, imm32 -> 05 imm32 */
 static void emit_add_eax_imm(unsigned char code[], int *idx, int imm) {
@@ -250,7 +243,6 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
     int func_offsets[MAX_FUNCS];
     int func_count = 0;
 
-    int current_func = -1;
     int last_was_ret = 0;
 
     /* inicializa func_offsets */
@@ -264,10 +256,8 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
             /* início de função */
             if (func_count >= MAX_FUNCS) {
                 /* Excedeu número máximo esperado de funções: ignorar restante */
-                current_func = -1;
                 continue;
             }
-            current_func = func_count;
             func_offsets[func_count] = idx;
             func_count++;
             last_was_ret = 0;
@@ -280,7 +270,6 @@ void gera_codigo(FILE *f, unsigned char code[], funcp *entry) {
             if (!last_was_ret) {
                 emit_epilogue(code, &idx);
             }
-            current_func = -1;
             last_was_ret = 0;
             continue;
         }
